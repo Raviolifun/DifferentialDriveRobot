@@ -8,7 +8,7 @@ I created a sensor and control library to control a differential drive robot I c
 The differential robot is called Frank btw.
 
 ## Here is frank
-![Differential drive robot](Frank_Renders/differential_Drive.jpg)
+![Differential drive robot](Frank_Renders/Differential_Drive.jpg)
 
 ## Issue tracking
 - [x] Build and design Frank
