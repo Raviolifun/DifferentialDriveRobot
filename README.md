@@ -13,8 +13,10 @@ The differential robot is called Frank btw.
 ## Issue tracking
 - [x] Build and design Frank
 - [x] Create repository and readme
-- [ ] Fix venv (no python exe?)
+- [x] Fix venv (no python exe?)
+- [x] Fix repository basically
 - [x] Learn python hardware interface
+- [ ] Fix python library dependencies (Must be an easy way to download all relevant python libs)
 - [ ] Finish sensor interface
 - [ ] Finish Actuator interface
 - [ ] Add threading to PID class
