@@ -28,14 +28,21 @@ def exit_robot():
 
 # Make sure to NOT run this twice, currently there is no protection
 def control_mixing(joy_y, joy_x, input_norm, output_norm, threshold):
-    magnitude = joy_y/input_norm
-    direction = joy_x/input_norm
+    magnitude = (-float(joy_x)/input_norm)**350
+    direction = (-float(joy_y)/input_norm)
 
-    if abs(magnitude) * input_norm < threshold:
-        magnitude = 0
+    left = output_norm * (magnitude - direction * abs(magnitude) + magnitude - direction)/2
+    right = output_norm * (magnitude + direction * abs(magnitude) + magnitude + direction)/2
 
-    left = output_norm * magnitude * (1 + direction - direction * math.copysign(1, direction))
-    right = output_norm * magnitude * (1 - direction - direction * math.copysign(1, direction))
+    if abs(left) > output_norm:
+        left = math.copysign(output_norm, left)
+    elif abs(left) * output_norm < 0.005:
+        left = 0
+
+    if abs(right) > output_norm:
+        right = math.copysign(output_norm, right)
+    elif abs(right) * output_norm < 0.005:
+        right = 0
 
     return left, right
 
@@ -58,21 +65,26 @@ class RobotLoop(Thread):
     def run(self):
         while not self.shutdown_flag.is_set():
             self.robot_loop()
-            time.sleep(25)
+            time.sleep(.025)
+        self.kit.continuous_servo[0].throttle = 0
+        self.kit.continuous_servo[1].throttle = 0
 
     # Main robot loop
     def robot_loop(self):
-        address = self.command_input.self.address
+        address = self.command_input.address
 
         if not address:
-            joy_y = self.command_input.self.joy_y
-            joy_x = self.command_input.self.joy_x
-            buttons = self.command_input.self.buttons
+            joy_y = self.command_input.joy_y
+            joy_x = self.command_input.joy_x
+            buttons = self.command_input.buttons
 
-            [left, right] = control_mixing(joy_y, joy_x, 2048, 1, 50)
-            self.kit.continuous_servo[0].throttle = left
-            self.kit.continuous_servo[1].throttle = right
+            [left, right] = control_mixing(joy_y, joy_x, 3500, 1, 0.005)
+            print("Updating Robot Commands: ", left, ", ", right)
+            self.kit.continuous_servo[0].throttle = -left
+            # Found it was drifting a little bit
+            self.kit.continuous_servo[1].throttle = right/1.1
         else:
+            print("Different Address, setting velocity to zero")
             self.kit.continuous_servo[0].throttle = 0
             self.kit.continuous_servo[1].throttle = 0
 
@@ -81,10 +93,10 @@ class RobotLoop(Thread):
 if __name__ == '__main__':
     # Startup robot peripherals
     startup_robot()
+
     # Start Robot stuff!
     radio_thread = remote_nrf24.RadioLoop()
     robot_thread = RobotLoop(radio_thread)
-    # Wait until something possibly errors out
 
     # If the user presses space, stop the device
     try:

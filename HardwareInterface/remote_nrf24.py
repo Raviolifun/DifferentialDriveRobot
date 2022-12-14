@@ -84,10 +84,10 @@ class RadioLoop(Thread):
                 self.joy_x = struct.unpack(">h", buffer[4:6])[0]
                 self.buttons = struct.unpack(">H", buffer[6:8])[0]
                 # print details about the received packet
-                print(
-                    f"Received {self.radio.payloadSize} bytes",
-                    f"on pipe {pipe_number}: {self.address}, {self.joy_y}, {self.joy_x}, {self.buttons}",
-                )
+                # print(
+                #     f"Received {self.radio.payloadSize} bytes",
+                #     f"on pipe {pipe_number}: {self.address}, {self.joy_y}, {self.joy_x}, {self.buttons}",
+                # )
                 start_timer = time.monotonic()  # reset the timeout timer
 
         print("Nothing received in", timeout, "seconds or thread forcibly quit. Leaving RX role and turning radio off")
