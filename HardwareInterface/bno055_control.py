@@ -35,6 +35,6 @@ class IMULoop(Thread):
             # print("Quaternion: {}".format(sensor.quaternion))
             # print("Linear acceleration (m/^2): {}".format(sensor.linear_acceleration))
             # print("Gravity (m/s^2): {}".format(sensor.gravity))
-            time.sleep(0.025)
+            time.sleep(0.01)
 
 

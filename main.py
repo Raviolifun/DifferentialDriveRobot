@@ -83,13 +83,15 @@ class RobotLoop(Thread):
         self.start()
         
     def run(self):
-        while not self.shutdown_flag.is_set():
+        # This provides an exit strategy if both 6 and 7 are pressed
+        while not self.shutdown_flag.is_set() and not (((self.command_input.buttons >> 6) & 1) and ((self.command_input.buttons >> 7) & 1)):
             self.robot_loop()
             time.sleep(.05)
         self.kit.continuous_servo[0].throttle = 0
         self.kit.continuous_servo[1].throttle = 0
         self.IMU_thread.shutdown_flag.set()
         self.IMU_thread.join()
+        self.shutdown_flag.set()
 
     # Main robot loop
     def robot_loop(self):
@@ -103,14 +105,55 @@ class RobotLoop(Thread):
             # self.command_input.send_error = 0
             self.command_input.send_status = buttons
 
-            joy_y = self.joy_y_average.process(joy_y)
-            joy_x = self.joy_x_average.process(joy_x)
+            if (buttons >> 3) & 1:
+                joy_y = self.joy_y_average.process(joy_y)
+                joy_x = self.joy_x_average.process(joy_x)
 
-            [left, right] = control_mixing(joy_y, joy_x, 3500, 1, 0.005)
-            # print("Updating Robot Commands: ", left, ", ", right)
-            self.kit.continuous_servo[0].throttle = -left
-            # Found it was drifting a little bit
-            self.kit.continuous_servo[1].throttle = right
+                [left, right] = control_mixing(joy_y, joy_x, 3500, 1, 0.005)
+                # print("Updating Robot Commands: ", left, ", ", right)
+                self.kit.continuous_servo[0].throttle = -left
+                # Found it was drifting a little bit
+                self.kit.continuous_servo[1].throttle = right
+                # Now lets see what buttons are set
+
+            elif (buttons >> 4) & 1:
+                # Now it's time to do error correction for gyro
+                error = self.command_input.angle - self.IMU_thread.euler_angle[0]
+                # To avoid angle discontinuities for Gyro
+                if error > 180:
+                    error = error - 360
+                elif error < -180:
+                    error = error + 360
+
+                proportional_gain = 0.005
+                proportional_term = error * proportional_gain
+                if abs(proportional_term) > 1:
+                    proportional_term = math.copysign(1, proportional_term)
+                elif abs(proportional_term) < 0.005:
+                    proportional_term = 0
+
+                self.kit.continuous_servo[0].throttle = proportional_term
+                self.kit.continuous_servo[1].throttle = proportional_term
+
+                self.command_input.send_error = int(error)
+
+                print("Gyro Mode, Error: ", error)
+
+            elif (buttons >> 5) & 1:
+                print("Human Mode")
+                # time to track human faces!
+
+            elif (buttons >> 6) & 1:
+                print("Undefined Mode 1")
+
+            elif (buttons >> 7) & 1:
+                print("Undefined Mode 2")
+
+            else:
+                # make sure the motors aren't moving if a panic stop was done
+                self.kit.continuous_servo[0].throttle = 0
+                self.kit.continuous_servo[1].throttle = 0
+
         else:
             print("Different Address, setting velocity to zero")
             self.kit.continuous_servo[0].throttle = 0
@@ -128,7 +171,7 @@ if __name__ == '__main__':
 
     # If the user presses space, stop the device
     try:
-        while True:
+        while not robot_thread.shutdown_flag.is_set():
             pass
     except KeyboardInterrupt:
         pass
