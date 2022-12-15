@@ -4,6 +4,7 @@
 #from Practice import servo_control
 from adafruit_servokit import ServoKit
 from HardwareInterface import remote_nrf24
+from HardwareInterface import bno055_control
 from threading import Thread
 import threading
 import time
@@ -28,8 +29,8 @@ def exit_robot():
 
 # Make sure to NOT run this twice, currently there is no protection
 def control_mixing(joy_y, joy_x, input_norm, output_norm, threshold):
-    magnitude = (-float(joy_x)/input_norm)**350
-    direction = (-float(joy_y)/input_norm)
+    magnitude = (-float(joy_x)/input_norm)**3
+    direction = (-float(joy_y)/input_norm)**3
 
     left = output_norm * (magnitude - direction * abs(magnitude) + magnitude - direction)/2
     right = output_norm * (magnitude + direction * abs(magnitude) + magnitude + direction)/2
@@ -47,6 +48,20 @@ def control_mixing(joy_y, joy_x, input_norm, output_norm, threshold):
     return left, right
 
 
+class StreamingMovingAverage:
+    def __init__(self, window_size):
+        self.window_size = window_size
+        self.values = []
+        self.sum = 0
+
+    def process(self, value):
+        self.values.append(value)
+        self.sum += value
+        if len(self.values) > self.window_size:
+            self.sum -= self.values.pop(0)
+        return float(self.sum) / len(self.values)
+
+
 class RobotLoop(Thread):
     def __init__(self, input_radio_thread):
         Thread.__init__(self)
@@ -54,9 +69,14 @@ class RobotLoop(Thread):
         # Add the radio as an object to pull data from
         self.command_input = input_radio_thread
 
+        # Initialize Gyro and start its thread
+        self.IMU_thread = bno055_control.IMULoop()
+
         # I dont like putting this here, got to change this later
         # TODO
         self.kit = ServoKit(channels=16)
+        self.joy_y_average = StreamingMovingAverage(5)
+        self.joy_x_average = StreamingMovingAverage(5)
 
         # Thread Overhead
         self.shutdown_flag = threading.Event()
@@ -65,9 +85,11 @@ class RobotLoop(Thread):
     def run(self):
         while not self.shutdown_flag.is_set():
             self.robot_loop()
-            time.sleep(.025)
+            time.sleep(.05)
         self.kit.continuous_servo[0].throttle = 0
         self.kit.continuous_servo[1].throttle = 0
+        self.IMU_thread.shutdown_flag.set()
+        self.IMU_thread.join()
 
     # Main robot loop
     def robot_loop(self):
@@ -78,11 +100,17 @@ class RobotLoop(Thread):
             joy_x = self.command_input.joy_x
             buttons = self.command_input.buttons
 
+            # self.command_input.send_error = 0
+            self.command_input.send_status = buttons
+
+            joy_y = self.joy_y_average.process(joy_y)
+            joy_x = self.joy_x_average.process(joy_x)
+
             [left, right] = control_mixing(joy_y, joy_x, 3500, 1, 0.005)
-            print("Updating Robot Commands: ", left, ", ", right)
+            # print("Updating Robot Commands: ", left, ", ", right)
             self.kit.continuous_servo[0].throttle = -left
             # Found it was drifting a little bit
-            self.kit.continuous_servo[1].throttle = right/1.1
+            self.kit.continuous_servo[1].throttle = right
         else:
             print("Different Address, setting velocity to zero")
             self.kit.continuous_servo[0].throttle = 0

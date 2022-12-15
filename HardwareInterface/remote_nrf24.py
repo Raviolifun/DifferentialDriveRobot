@@ -27,12 +27,20 @@ class RadioLoop(Thread):
 
         # Generic:
         self.radio = RF24(6, 0)
+        self.send_rate = 0.25
 
         # Variables to store values in
         self.address = 0
         self.joy_y = 0
         self.joy_x = 0
         self.buttons = 0
+        self.gyro = 0
+        self.angle = 0
+
+        # Variables to send
+        self.send_address = 0
+        self.send_error = 0
+        self.send_status = 0
 
         # Call Initialization function
         self.initialize_radio()
@@ -42,33 +50,12 @@ class RadioLoop(Thread):
         self.start()
 
     def run(self):
-        self.slave(timeout=6)
+        self.slave(timeout=600)
 
-    # def master():
-    #     """Transmits an incrementing float every second"""
-    #     radio.stopListening()  # put radio in TX mode
-    #     failures = 0
-    #     while failures < 6:
-    #         # use struct.pack() to packet your data into the payload
-    #         # "<f" means a single little endian (4 byte) float value.
-    #         buffer = struct.pack("<f", payload[0])
-    #         start_timer = time.monotonic_ns()  # start timer
-    #         result = radio.write(buffer)
-    #         end_timer = time.monotonic_ns()  # end timer
-    #         if not result:
-    #             print("Transmission failed or timed out")
-    #             failures += 1
-    #         else:
-    #             print(
-    #                 "Transmission successful! Time to Transmit:",
-    #                 f"{(end_timer - start_timer) / 1000} us. Sent: {payload[0]}",
-    #             )
-    #             payload[0] += 0.01
-    #         time.sleep(1)
-    #     print(failures, "failures detected. Leaving TX role.")
-
-    def slave(self, timeout=6):
+    def slave(self, timeout=60):
         self.radio.startListening()  # put radio in RX mode
+
+        sender_timer = time.monotonic()
 
         start_timer = time.monotonic()
         while (time.monotonic() - start_timer) < timeout and not self.shutdown_flag.is_set():
@@ -82,13 +69,24 @@ class RadioLoop(Thread):
                 self.address = struct.unpack(">H", buffer[0:2])[0]
                 self.joy_y = struct.unpack(">h", buffer[2:4])[0]
                 self.joy_x = struct.unpack(">h", buffer[4:6])[0]
-                self.buttons = struct.unpack(">H", buffer[6:8])[0]
+                self.buttons = struct.unpack(">B", buffer[6:7])[0]
+                self.gyro = struct.unpack(">h", buffer[7:9])[0]
+                self.angle = struct.unpack(">h", buffer[9:11])[0]
                 # print details about the received packet
                 # print(
                 #     f"Received {self.radio.payloadSize} bytes",
                 #     f"on pipe {pipe_number}: {self.address}, {self.joy_y}, {self.joy_x}, {self.buttons}",
                 # )
                 start_timer = time.monotonic()  # reset the timeout timer
+
+            if (time.monotonic() - sender_timer) > self.send_rate:
+                self.radio.stopListening()
+                buffer = struct.pack("HhB", self.send_address, self.send_error, self.send_status)
+                result = self.radio.write(buffer)
+                self.radio.startListening()
+                sender_timer = time.monotonic()
+
+            time.sleep(.020)
 
         print("Nothing received in", timeout, "seconds or thread forcibly quit. Leaving RX role and turning radio off")
         # recommended behavior is to keep in TX mode while idle
