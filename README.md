@@ -5,7 +5,8 @@ My custom sensor and control library
 ---------------------
 
 I created a sensor and control library to control a differential drive robot I created.
-The differential robot is called Frank btw.
+The differential robot is called Frank btw, and I made a [website post about him!](https://orenanderson.com/frank-the-robot-and-real-time-operating-systems/) 
+Still working on all the features, but hopefully what I have here now is useful for someone!
 
 ## Here is frank
 ![Differential drive robot](Frank_Renders/AlphaRender.png)
@@ -16,13 +17,13 @@ The differential robot is called Frank btw.
 - [x] Fix venv (no python exe?)
 - [x] Fix repository basically
 - [x] Learn python hardware interface
-- [ ] Fix python library dependencies (Must be an easy way to download all relevant python libs)
-- [ ] Finish sensor interface
-- [ ] Finish Actuator interface
-- [ ] Add threading to PID class
+- [x] Fix python library dependencies (Must be an easy way to download all relevant python libs)
+- [x] Finish sensor interface
+- [x] Finish Actuator interface
+- [x] Add threading to PID class
 - [x] Investigate custom Kalman filter
 - [ ] Write custom Kalman filter
-- [ ] Get robot to turn accurately 90 Deg back and forth
+- [x] Get robot to turn accurately 90 Deg back and forth
 - [x] Research A* algorithm
 - [x] Create node map with localized resolution control
 - [ ] Write A* algorithm for this map
